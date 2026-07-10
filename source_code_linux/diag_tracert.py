@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os, subprocess, sys, core_config
+import subprocess
+import sys
+import core_config
+import security_utils
+
 
 def run():
     while True:
@@ -11,14 +15,19 @@ def run():
         
         target = input("\n Podaj adres IP lub domenę (np. google.com) lub [0] aby wrócić: ").strip()
         
-        if target == '0' or not target: break
+        if target == '0' or not target: 
+            break
+        
+        if not security_utils.validate_hostname(target):
+            print(" [!] Nieprawidłowy adres (IP lub domena)")
+            input("\nEnter...")
+            continue
 
         print(f"\n [!] Rozpoczynam śledzenie drogi do: {target}")
         print(" [!] Używam narzędzia 'tracepath' (Linux standard).\n")
         print("-" * 64)
 
         try:
-            # tracepath -n (bez rozwiązywania nazw dla szybkości, opcjonalnie)
             process = subprocess.Popen(
                 ['tracepath', target], 
                 stdout=subprocess.PIPE, 
@@ -26,7 +35,6 @@ def run():
                 text=True
             )
 
-            # Czytamy wynik linia po linii
             while True:
                 line = process.stdout.readline()
                 if not line and process.poll() is not None:
@@ -37,7 +45,8 @@ def run():
 
         except KeyboardInterrupt:
             print("\n\n [!] Przerwano przez użytkownika.")
-            if process: process.terminate()
+            if process: 
+                process.terminate()
         except FileNotFoundError:
              print("\n [!] Nie znaleziono polecenia 'tracepath'. Zainstaluj: sudo apt install iputils-tracepath")
         except Exception as e:

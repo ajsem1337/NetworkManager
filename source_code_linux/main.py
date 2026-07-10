@@ -28,7 +28,11 @@ def check_first_run():
     if os.path.exists(flag_file):
         return
 
-    os.system('cls')
+    # Użyj subprocess zamiast os.system - bezpieczniej
+    try:
+        subprocess.run(['clear'], stderr=subprocess.DEVNULL, check=False)
+    except FileNotFoundError:
+        subprocess.run(['cls'], stderr=subprocess.DEVNULL, check=False)
     print(f"\n {C}================================================================{RESET}")
     print(f"                 {Y}WITAJ W PROGRAMIE NETWORK MASTER{RESET}")
     print(f" {C}================================================================{RESET}")
@@ -55,9 +59,15 @@ def show_hardware():
     core_config.clear_screen()
     print(f"{C}=== SPRZĘT SIECIOWY (lspci / lsusb) ==={RESET}\n")
     print(" [PCI Devices]")
-    os.system("lspci | grep -i net")
+    try:
+        subprocess.run(["sh", "-c", "lspci | grep -i net"], check=False)
+    except FileNotFoundError:
+        print(" [!] Polecenie 'lspci' nie znalezione")
     print("\n [USB Devices]")
-    os.system("lsusb | grep -i -E 'net|wifi|wlan|ethernet'")
+    try:
+        subprocess.run(["sh", "-c", "lsusb | grep -i -E 'net|wifi|wlan|ethernet'"], check=False)
+    except FileNotFoundError:
+        print(" [!] Polecenie 'lsusb' nie znalezione")
     print("-" * 40)
     input("\n Enter...")
 
