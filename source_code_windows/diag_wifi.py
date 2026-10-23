@@ -8,13 +8,12 @@ def run():
     
     try:
         # Pobieranie listy profili (obsługa wersji PL i EN)
-        raw = subprocess.run("netsh wlan show profiles", capture_output=True, text=True, encoding='cp852', shell=True).stdout
+        raw = subprocess.run(["netsh", "wlan", "show", "profiles"], capture_output=True, text=True, encoding='cp852', timeout=15).stdout
         profiles = re.findall(r"(?:All User Profile|Profil wszystkich użytkowników)\s*:\s*(.*)", raw)
         
         data, max_l = [], 15
         for p in [x.strip() for x in profiles]:
-            # Dodanie '*' po nazwie profilu pomaga Windowsowi dopasować nazwę, nawet jeśli ma spacje na końcu
-            out = subprocess.run(f'netsh wlan show profile name="{p}*" key=clear', capture_output=True, text=True, encoding='cp852', shell=True).stdout
+            out = subprocess.run(["netsh", "wlan", "show", "profile", "name=" + p, "key=clear"], capture_output=True, text=True, encoding='cp852', timeout=15).stdout
             
             # Wyciąganie typu zabezpieczeń
             auth_match = re.search(r"(?:Authentication|Uwierzytelnianie)\s*:\s*(.*)", out)
@@ -48,14 +47,15 @@ def run():
             print(line)
             res_txt += line + "\n"
             
-        core_report.save(res_txt, "WiFi_Security_Audit")
+        if input("\n Zapisać raport z hasłami WiFi? (t/n): ").strip().lower() == "t":
+            core_report.save(res_txt, "WiFi_Security_Audit")
         
     except Exception as e: 
         print(f" [!] Błąd odczytu WiFi: {e}")
         
-    # Informacja o WPA3 na samym dole
+    # Odczyt zależy od uprawnień i sposobu przechowywania klucza w systemie.
     print("\n" + "="*90)
-    print(" INFO: Standard WPA3-SAE chroni hasło przed prostym odczytem przez skrypty.")
+    print(" INFO: Raport może zawierać hasła WiFi w jawnym tekście.")
     print(" Status [CHRONIONE] oznacza, że system operacyjny ukrył klucz dla bezpieczeństwa.")
     print("="*90)
     

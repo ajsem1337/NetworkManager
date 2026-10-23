@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os, time, core_config
+import time
+import core_config
+import security_utils
 
-G, R, C, Y, RESET = '\033[92m', '\033[91m', '\033[96m', '\033[93m', '\033[0m'
+G, R, C, RESET = '\033[92m', '\033[91m', '\033[96m', '\033[0m'
+
 
 def save(content, filename_prefix="Report"):
-    ts = time.strftime("%Y%m%d_%H%M%S")
-    full_name = f"{filename_prefix}_{ts}.txt"
-    file_path = os.path.join(core_config.REPORTS_DIR, full_name)
-    
+    """Save a unique report inside Reports, using private POSIX permissions."""
     try:
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(content)
+        core_config.init()
+        path = security_utils.save_report(
+            core_config.REPORTS_DIR, content, filename_prefix,
+            time.strftime("%Y%m%d_%H%M%S"),
+        )
         print(f"\n {G}[SUKCES]{RESET} Raport zapisano.")
-        print(f" Plik: {file_path}")
-    except Exception as e:
-        print(f"\n {R}[BŁĄD]{RESET} {e}")
+        print(f" Plik: {C}{path}{RESET}")
+        return path
+    except Exception as exc:
+        print(f"\n {R}[BŁĄD ZAPISU]{RESET} {exc}")
+        return None

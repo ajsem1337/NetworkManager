@@ -3,6 +3,7 @@ import subprocess
 import re
 import time
 import core_report
+import security_utils
 
 G, R, C, Y, RESET = '\033[92m', '\033[91m', '\033[96m', '\033[93m', '\033[0m'
 
@@ -21,9 +22,11 @@ def ping_server(ip):
     """Wykonuje 3 pingi do serwera i zwraca średni czas w ms. Zwraca 9999 jeśli błąd."""
     try:
         # -n 3: trzy pakiety, -w 1000: timeout 1 sekunda na pakiet
-        cmd = f"ping -n 3 -w 1000 {ip}"
+        if not security_utils.validate_ipv4(ip):
+            return 9999
+        cmd = ["ping", "-n", "3", "-w", "1000", ip]
         # Używamy cp852 dla polskiego Windowsa, ignorujemy błędy znaków
-        res = subprocess.run(cmd, capture_output=True, text=True, shell=True, encoding='cp852', errors='ignore').stdout
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=8, encoding='cp852', errors='ignore').stdout
         
         # Szukamy wartości "Średnio = X ms" lub "Average = Xms"
         # Regex łapie formaty: Średnio = 15 ms, Srednio=15ms, Average = 15ms

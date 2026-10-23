@@ -5,10 +5,13 @@ import time
 import core_report
 import core_mac_lookup
 import core_config
-import db_wol     
+import db_wol
+import security_utils
 
 def wake_up_ip(ip):
-    subprocess.run(f"ping -n 1 -w 100 {ip}", capture_output=True, shell=True)
+    if not security_utils.validate_ipv4(ip):
+        return
+    subprocess.run(["ping", "-n", "1", "-w", "100", ip], capture_output=True, timeout=3)
 
 def get_local_ip_prefix():
     try:
@@ -52,12 +55,11 @@ def run():
                 t = found[idx]
                 print(f"\n --- DODAWANIE DO WOL: {t['ip']} ---")
                 name = input(f" Nazwa (Enter dla {t['vendor'][:15]}): ") or t['vendor'][:15]
-                pwd = input(" Hasło (opcjonalne): ")
                 
                 current_db = db_wol.load_wol_profiles()
                 
-                # Format: [Nazwa, MAC, IP, Hasło] - Zapisywane bez szyfrowania
-                current_db.append([name, t['mac'], t['ip'], pwd if pwd else "-"])
+                # Ostatnie pole pozostaje puste dla zgodności ze starszą bazą.
+                current_db.append([name, t['mac'], t['ip'], "-"])
                 db_wol.save_wol_profiles(current_db)
                 
                 print(" [V] Dodano profil do bazy."); time.sleep(1.5)

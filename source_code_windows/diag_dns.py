@@ -1,5 +1,5 @@
 # diag_dns.py
-import os, subprocess, core_report, re
+import os, subprocess, core_report, re, security_utils
 
 G, R, C, Y, RESET = '\033[92m', '\033[91m', '\033[96m', '\033[93m', '\033[0m'
 
@@ -23,15 +23,21 @@ def run():
         
         if c == '1':
             dom = input(" Podaj nazwę (np. wp.pl): ").strip()
-            if not dom: continue
-            res = subprocess.run(f"nslookup {dom} 8.8.8.8", capture_output=True, text=True, shell=True, encoding='cp852').stdout
+            if not security_utils.validate_hostname(dom):
+                print(" [!] Nieprawidłowy host lub adres IP.")
+                input(" Enter...")
+                continue
+            res = subprocess.run(["nslookup", dom, "8.8.8.8"], capture_output=True, text=True, timeout=15, encoding='cp852').stdout
             print(f"\nOdpowiedź serwera:\n{res}")
             core_report.save(res, f"DNS_{dom}")
             input("\nNaciśnij Enter...")
         
         elif c == '2':
             dom = input(" Podaj domenę do testu propagacji: ").strip()
-            if not dom: continue
+            if not security_utils.validate_hostname(dom):
+                print(" [!] Nieprawidłowy host lub adres IP.")
+                input(" Enter...")
+                continue
             print(f"\n {Y}[i] Sprawdzanie propagacji dla: {dom}{RESET}\n")
             
             results = f"Test propagacji DNS dla: {dom}\n"
@@ -41,7 +47,7 @@ def run():
                 print(f" [*] Odpytywanie {name:<11} ({ip:<15})...", end="", flush=True)
                 # Używamy nslookup, aby faktycznie zapytać konkretny serwer (ChatGPT użył lokalnego cache)
                 try:
-                    res = subprocess.run(f"nslookup {dom} {ip}", capture_output=True, text=True, shell=True, encoding='cp852').stdout
+                    res = subprocess.run(["nslookup", dom, ip], capture_output=True, text=True, timeout=15, encoding='cp852').stdout
                     ips = re.findall(r'Address(?:es)?:\s+((?:\d{1,3}\.){3}\d{1,3})', res)
                     
                     # Odrzucamy IP samego serwera DNS

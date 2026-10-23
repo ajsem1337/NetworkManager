@@ -1,12 +1,13 @@
-import os, subprocess, time, db_ip
+import os, subprocess, time, db_ip, security_utils
+from windows_commands import powershell, literal
 
 # Definicje kolorów (zgodne z main.py)
 G, R, C, Y, RESET = '\033[92m', '\033[91m', '\033[96m', '\033[93m', '\033[0m'
 
 def get_adapter_info(adapter_name):
     try:
-        cmd = f'powershell -Command "Get-NetAdapter -Name \'{adapter_name}\' -ErrorAction SilentlyContinue | Select-Object Status, LinkSpeed, MacAddress | ConvertTo-Csv -NoTypeInformation"'
-        out = subprocess.check_output(cmd, shell=True).decode('utf-8', errors='ignore').splitlines()
+        cmd = powershell(f'Get-NetAdapter | Where-Object {{ $_.Name -eq {literal(adapter_name)} }} | Select-Object Status, LinkSpeed, MacAddress | ConvertTo-Csv -NoTypeInformation')
+        out = subprocess.check_output(cmd, timeout=15).decode('utf-8', errors='ignore').splitlines()
         if len(out) >= 2:
             d = out[1].replace('"', '').split(',')
             raw_st = d[0].strip().upper()
@@ -20,8 +21,8 @@ def get_full_current_config(adapter_name):
     cfg = {"ip": "-", "mask": "-", "gw": "-", "dns1": "-", "dns2": "-"}
     try:
         # IP i MASKA
-        cmd_ip = f'powershell -Command "Get-NetIPAddress -InterfaceAlias \'{adapter_name}\' -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object IPAddress, PrefixLength"'
-        out_ip = subprocess.check_output(cmd_ip, shell=True).decode('utf-8', errors='ignore').strip().splitlines()
+        cmd_ip = powershell(f'Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object {{ $_.InterfaceAlias -eq {literal(adapter_name)} }} | Select-Object IPAddress, PrefixLength')
+        out_ip = subprocess.check_output(cmd_ip, timeout=15).decode('utf-8', errors='ignore').strip().splitlines()
         
         for line in out_ip:
             if "." in line:
@@ -38,13 +39,13 @@ def get_full_current_config(adapter_name):
                 break
         
         # BRAMA
-        cmd_gw = f'powershell -Command "(Get-NetRoute -InterfaceAlias \'{adapter_name}\' -DestinationPrefix \'0.0.0.0/0\').NextHop"'
-        res_gw = subprocess.run(cmd_gw, capture_output=True, text=True, shell=True).stdout.strip()
+        cmd_gw = powershell(f"(Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Where-Object {{ $_.InterfaceAlias -eq {literal(adapter_name)} }}).NextHop")
+        res_gw = subprocess.run(cmd_gw, capture_output=True, text=True, timeout=15).stdout.strip()
         if res_gw: cfg["gw"] = res_gw
 
         # DNS
-        cmd_dns = f'powershell -Command "(Get-DnsClientServerAddress -InterfaceAlias \'{adapter_name}\' -AddressFamily IPv4).ServerAddresses"'
-        res_dns = subprocess.run(cmd_dns, capture_output=True, text=True, shell=True).stdout.strip().splitlines()
+        cmd_dns = powershell(f'(Get-DnsClientServerAddress -AddressFamily IPv4 | Where-Object {{ $_.InterfaceAlias -eq {literal(adapter_name)} }}).ServerAddresses')
+        res_dns = subprocess.run(cmd_dns, capture_output=True, text=True, timeout=15).stdout.strip().splitlines()
         if len(res_dns) > 0: cfg["dns1"] = res_dns[0]
         if len(res_dns) > 1: cfg["dns2"] = res_dns[1]
     except: pass
@@ -58,22 +59,28 @@ def wait_for_ip(adapter_name):
 def set_interface_state(adapter_name, state):
     """state: enable | disable"""
     print(f" [i] Zmieniam stan karty na: {state}...")
-    subprocess.run(f'netsh interface set interface "{adapter_name}" admin={state}', shell=True)
+    if state not in ('enable', 'disable'):
+        raise ValueError('Nieprawidłowy stan karty')
+    subprocess.run(['netsh', 'interface', 'set', 'interface', 'name=' + adapter_name, 'admin=' + state], timeout=15)
     time.sleep(2)
 
 def apply_ip_config(adapter_name, ip, m, g, d1, d2):
+    if not security_utils.validate_ipv4(ip) or not security_utils.validate_netmask(m):
+        print(" [!] Nieprawidłowy adres IP lub maska.")
+        return
+    if any(value not in (None, '', '-') and not security_utils.validate_ipv4(value) for value in (g, d1, d2)):
+        print(" [!] Nieprawidłowa brama lub DNS.")
+        return
     print(f"\n [i] Ustawianie: IP {ip} | Maska {m} | Brama {g}")
-    if g and g != "-" and g != "":
-        cmd_ip = f'netsh interface ip set address "{adapter_name}" static {ip} {m} {g} 1'
-    else:
-        cmd_ip = f'netsh interface ip set address "{adapter_name}" static {ip} {m}'
-    subprocess.run(cmd_ip, shell=True)
-
-    if d1 and d1 != "-" and d1 != "":
-        subprocess.run(f'netsh interface ip set dns "{adapter_name}" static {d1} validate=no', shell=True)
-    if d2 and d2 != "-" and d2 != "":
-        subprocess.run(f'netsh interface ip add dns "{adapter_name}" {d2} index=2 validate=no', shell=True)
+    cmd_ip = ['netsh', 'interface', 'ip', 'set', 'address', 'name=' + adapter_name, 'static', ip, m]
+    cmd_ip += [g, '1'] if g not in (None, '', '-') else ['none']
+    subprocess.run(cmd_ip, check=True, timeout=15)
+    if d1 not in (None, '', '-'):
+        subprocess.run(['netsh', 'interface', 'ip', 'set', 'dns', 'name=' + adapter_name, 'static', d1, 'validate=no'], check=True, timeout=15)
+    if d2 not in (None, '', '-'):
+        subprocess.run(['netsh', 'interface', 'ip', 'add', 'dns', 'name=' + adapter_name, d2, 'index=2', 'validate=no'], check=True, timeout=15)
     wait_for_ip(adapter_name)
+
 
 def snapshot_to_db(cfg):
     print(f"\n{Y}--- SNAPSHOT DO BAZY ---{RESET}")
@@ -128,8 +135,8 @@ def run(adapter_name):
         
         elif c == '1':
             print("\n [i] Przywracanie DHCP...")
-            subprocess.run(f'netsh interface ip set address "{adapter_name}" source=dhcp', shell=True)
-            subprocess.run(f'netsh interface ip set dns "{adapter_name}" source=dhcp', shell=True)
+            subprocess.run(['netsh', 'interface', 'ip', 'set', 'address', 'name=' + adapter_name, 'source=dhcp'], check=True, timeout=15)
+            subprocess.run(['netsh', 'interface', 'ip', 'set', 'dns', 'name=' + adapter_name, 'source=dhcp'], check=True, timeout=15)
             wait_for_ip(adapter_name)
             
         elif c == '2':

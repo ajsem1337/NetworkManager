@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import security_utils
 
 def run():
     while True:
@@ -14,6 +15,11 @@ def run():
         if target == '0' or not target:
             break
 
+        if not security_utils.validate_hostname(target):
+            print(" [!] Nieprawidłowy host lub adres IP.")
+            input(" Enter...")
+            continue
+
         print(f"\n [!] Rozpoczynam śledzenie drogi do: {target}")
         print(" [!] To może potrwać kilka minut. Każdy skok pojawi się poniżej:\n")
         print("-" * 64)
@@ -25,8 +31,7 @@ def run():
                 ['tracert', '-d', target], 
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.STDOUT, 
-                text=True, 
-                shell=True
+                text=True
             )
 
             # Czytamy wynik linia po linii w czasie rzeczywistym

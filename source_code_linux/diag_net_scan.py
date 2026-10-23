@@ -2,17 +2,22 @@
 # -*- coding: utf-8 -*-
 import os, subprocess, concurrent.futures, time
 import core_report, core_mac_lookup, core_config, db_wol
+import security_utils
 
 def wake_up_ip(ip):
     # Linux ping: -c (count), -W (timeout sec)
-    subprocess.run(f"ping -c 1 -W 1 {ip}", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True)
+    if not security_utils.validate_ipv4(ip):
+        return
+    subprocess.run(["ping", "-c", "1", "-W", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3)
 
 def get_local_ip_prefix():
     try:
         # Pobieramy src IP trasy domyślnej
-        cmd = "ip route get 1.1.1.1 | grep -oP 'src \K\S+'"
-        res = subprocess.check_output(cmd, shell=True).decode().strip()
-        return ".".join(res.split(".")[:-1]) + "."
+        route = subprocess.check_output(["ip", "route", "get", "1.1.1.1"], text=True, timeout=5).split()
+        source_ip = route[route.index("src") + 1]
+        if security_utils.validate_ipv4(source_ip):
+            return ".".join(source_ip.split(".")[:-1]) + "."
+        return "192.168.1."
     except: return "192.168.1."
 
 def run():
@@ -26,7 +31,7 @@ def run():
 
     # Odczyt tablicy ARP (ip neigh)
     try:
-        raw = subprocess.check_output("ip neigh", shell=True).decode()
+        raw = subprocess.check_output(["ip", "neigh"], timeout=5).decode()
     except: raw = ""
     
     found = []
@@ -59,10 +64,9 @@ def run():
             if 0 <= sel < len(found):
                 t = found[sel]
                 name = input(f" Nazwa (Enter={t['vendor'][:10]}): ") or t['vendor'][:10]
-                pwd = input(" Hasło: ")
                 
                 db = db_wol.load_wol_profiles()
-                db.append([name, t['mac'], t['ip'], pwd if pwd else "-"])
+                db.append([name, t['mac'], t['ip'], "-"])
                 db_wol.save_wol_profiles(db)
                 print(" [OK] Dodano."); time.sleep(1)
         except: pass

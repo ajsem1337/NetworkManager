@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import requests, core_report, core_config
+import requests, core_report, core_config, security_utils
 
 def run():
     while True:
@@ -10,12 +10,16 @@ def run():
         
         if not domain or domain == '0': break
         
+        if not security_utils.validate_hostname(domain):
+            print(" [!] Nieprawidłowa domena.")
+            input(" Enter...")
+            continue
+
         print(f"\n [i] Pobieranie danych dla: {domain}...")
         
         try:
-            # FIX: Dodajemy User-Agent, żeby serwer myślał, że jesteśmy przeglądarką
             headers = {
-                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                "User-Agent": "NetworkMaster"
             }
             
             # Używamy API, które lepiej radzi sobie z przekierowaniami

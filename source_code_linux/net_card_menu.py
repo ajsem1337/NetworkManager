@@ -17,7 +17,7 @@ def get_connection_profile(iface):
             ["nmcli", "-t", "-f", "NAME,DEVICE", "con", "show"],
             text=True,
             stderr=subprocess.DEVNULL
-        ).decode()
+        )
         for line in out.splitlines():
             parts = line.split(":")
             if len(parts) > 1 and parts[1] == iface:
@@ -47,7 +47,7 @@ def get_current_config(iface):
             ["ip", "-4", "addr", "show", "dev", iface],
             text=True,
             stderr=subprocess.DEVNULL
-        ).decode()
+        )
         for line in out.splitlines():
             if "inet " in line:
                 parts = line.strip().split()
@@ -61,7 +61,7 @@ def get_current_config(iface):
                 break
         
         # 2. Brama
-        out_gw = subprocess.check_output(["ip", "route"], text=True, stderr=subprocess.DEVNULL).decode()
+        out_gw = subprocess.check_output(["ip", "route"], text=True, stderr=subprocess.DEVNULL)
         for line in out_gw.splitlines():
             if "default" in line and iface in line:
                 cfg['gw'] = line.split()[2]
@@ -72,7 +72,7 @@ def get_current_config(iface):
             ["nmcli", "dev", "show", iface],
             text=True,
             stderr=subprocess.DEVNULL
-        ).decode()
+        )
         dns_list = []
         for line in out_dns.splitlines():
             if "DNS" in line and ":" in line:
@@ -95,6 +95,9 @@ def mask_to_cidr(mask):
 
 def apply_config(iface, ip, mask, gw, d1, d2):
     """Apply network configuration with proper validation and no shell injection."""
+    if not security_utils.validate_interface_name(iface) or not security_utils.validate_netmask(mask):
+        print(f" {R}[BŁĄD]{RESET} Nieprawidłowy interfejs lub maska")
+        return
     if not security_utils.validate_ipv4(ip):
         print(f" {R}[BŁĄD]{RESET} Nieprawidłowy adres IP")
         return

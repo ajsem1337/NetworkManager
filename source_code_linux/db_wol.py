@@ -13,7 +13,7 @@ def load_wol_profiles():
             for line in f:
                 parts = line.strip().split(";")
                 while len(parts) < 4: parts.append("-")
-                profiles.append([parts[0], parts[1], parts[2], parts[3]])
+                profiles.append([parts[0], parts[1], parts[2], "-"])
     except: pass
     return profiles
 
@@ -21,7 +21,7 @@ def save_wol_profiles(profiles):
     try:
         with open(DB_PATH, "w", encoding="utf-8") as f:
             for p in profiles:
-                f.write(f"{p[0]};{p[1]};{p[2]};{p[3]}\n")
+                f.write(f"{p[0]};{p[1]};{p[2]};-\n")
     except: pass
 
 def send_magic_packet(mac, ip_bcast="255.255.255.255"):
@@ -42,19 +42,17 @@ def manual_input_wol(old=None):
     n = input(f" Nazwa [{cur[0]}]: ") or cur[0]
     m = input(f" MAC [{cur[1]}]: ") or cur[1]
     i = input(f" IP/Bcast [{cur[2]}]: ") or cur[2]
-    p = input(f" Hasło (SSH/RPC) [Enter=Bez zmian]: ")
-    return [n, m, i, p if p else cur[3]]
+    return [n, m, i, "-"]
 
 def run():
     while True:
         profs = load_wol_profiles()
         core_config.clear_screen()
         print(f"{C}=== WAKE ON LAN MANAGER ==={RESET}")
-        print(f" {'ID':<3} | {'NAZWA':<15} | {'MAC':<17} | {'IP':<15} | {'HASŁO'}")
+        print(f" {'ID':<3} | {'NAZWA':<15} | {'MAC':<17} | {'IP':<15}")
         print("-" * 65)
         for i, p in enumerate(profs, 1):
-            pwd = p[3]
-            print(f" {i:<3} | {p[0]:<15} | {p[1]:<17} | {p[2]:<15} | {pwd}")
+            print(f" {i:<3} | {p[0]:<15} | {p[1]:<17} | {p[2]:<15}")
         print("-" * 65)
         print(f" [ID] Wybudź  [A] Dodaj  [E] Edytuj  [D] Usuń  [0] Powrót")
         

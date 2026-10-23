@@ -4,6 +4,8 @@
 
 import ipaddress
 import re
+import os
+import tempfile
 
 
 def validate_ipv4(address: str) -> bool:
@@ -17,7 +19,8 @@ def validate_ipv4(address: str) -> bool:
 
 def validate_hostname(hostname: str) -> bool:
     """Validate if string is a valid hostname or domain."""
-    if not hostname or len(hostname) > 253:
+    if (not hostname or len(hostname) > 253 or '%' in hostname
+            or any(ord(char) < 32 or ord(char) == 127 for char in hostname)):
         return False
     
     # Allow IPv4, IPv6, and hostnames
@@ -31,7 +34,7 @@ def validate_hostname(hostname: str) -> bool:
         pass
     
     # RFC 1123: alphanumeric, hyphens, dots. No leading/trailing hyphen/dot
-    if re.match(r'^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$', hostname):
+    if re.fullmatch(r'(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?', hostname):
         return True
     
     return False
@@ -41,12 +44,35 @@ def validate_interface_name(ifname: str) -> bool:
     """Validate network interface name (Linux: max 15 chars, alphanumeric, hyphen, underscore, dot)."""
     if not ifname or len(ifname) > 15:
         return False
-    return bool(re.match(r'^[a-zA-Z0-9:._-]+$', ifname))
+    return ifname not in ('.', '..') and bool(re.fullmatch(r'[a-zA-Z0-9_][a-zA-Z0-9:._-]*', ifname))
 
 
 def validate_profile_name(profile_name: str) -> bool:
     """Validate NetworkManager profile name."""
     if not profile_name or len(profile_name) > 255:
         return False
-    # Allow most characters except null bytes
-    return '\x00' not in profile_name
+    # Reject control characters, including null bytes and line breaks.
+    return not any(ord(char) < 32 or ord(char) == 127 for char in profile_name)
+
+
+def validate_netmask(mask: str) -> bool:
+    """Accept a contiguous dotted IPv4 netmask."""
+    if not validate_ipv4(mask):
+        return False
+    try:
+        return str(ipaddress.IPv4Network('0.0.0.0/' + mask).netmask) == mask
+    except ValueError:
+        return False
+
+
+def save_report(directory, content, prefix, timestamp):
+    """Create a private, unique report without following an existing file link."""
+    safe_prefix = re.sub(r'[^A-Za-z0-9_-]', '_', prefix)[:80] or 'Report'
+    fd, path = tempfile.mkstemp(prefix=f'{safe_prefix}_{timestamp}_', suffix='.txt', dir=directory)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as report:
+            report.write(content)
+    except BaseException:
+        os.unlink(path)
+        raise
+    return path

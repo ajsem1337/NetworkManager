@@ -8,14 +8,16 @@ def run():
     print(" [i] Pobieranie danych...")
     
     try:
-        response = requests.get("http://ip-api.com/json/", timeout=5).json()
-        if response['status'] == 'success':
+        response = requests.get("https://ipwho.is/", timeout=5)
+        response.raise_for_status()
+        response = response.json()
+        if response.get('success') is True:
             data = f"""
- ADRES IP:    {response['query']}
- KRAJ:        {response['country']} ({response['countryCode']})
+ ADRES IP:    {response['ip']}
+ KRAJ:        {response['country']} ({response['country_code']})
  MIASTO:      {response['city']}
- REGION:      {response['regionName']}
- DOSTAWCA:    {response['isp']}
+ REGION:      {response['region']}
+ DOSTAWCA:    {response['connection']['isp']}
 """
             print(data)
             print("-" * 40)

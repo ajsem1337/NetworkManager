@@ -6,21 +6,23 @@ def run():
     print(" [i] Pobieranie danych o Twoim publicznym adresie IP...")
     
     try:
-        # Korzystamy z darmowego API ip-api
-        response = requests.get("http://ip-api.com/json/").json()
+        # GeoIP przez HTTPS; format odpowiedzi: https://ipwhois.io/documentation
+        response = requests.get("https://ipwho.is/", timeout=5)
+        response.raise_for_status()
+        response = response.json()
         
-        if response['status'] == 'success':
+        if response.get('success') is True:
             data = f"""
- ADRES IP:    {response['query']}
- KRAJ:        {response['country']} ({response['countryCode']})
+ ADRES IP:    {response['ip']}
+ KRAJ:        {response['country']} ({response['country_code']})
  MIASTO:      {response['city']}
- REGION:      {response['regionName']}
- DOSTAWCA:    {response['isp']}
+ REGION:      {response['region']}
+ DOSTAWCA:    {response['connection']['isp']}
 """
             print(data)
             
             print("-" * 40)
-            if input(" [?] Zapisać raport na PULPICIE? (t/n): ").lower() == 't':
+            if input(" [?] Zapisać raport? (t/n): ").lower() == 't':
                 core_report.save(data, "Raport_GeoIP")
                 print(" [OK] Zapisano.")
         else:

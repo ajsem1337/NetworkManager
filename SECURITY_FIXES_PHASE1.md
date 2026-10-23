@@ -1,5 +1,15 @@
 # NetworkManager - Security Hardening Phase 1 ✅
 
+> **Historical report.** The findings and completion claims below describe the
+> earlier Phase 1 work and are not a security guarantee for either platform.
+> Later review found additional command injection paths, especially on Windows,
+> and unsafe report paths. The current hardening removes those dynamic shell
+> calls, validates network configuration, creates unique reports with private
+> POSIX permissions, makes WiFi report export optional, drops unused WOL password
+> storage, and uses HTTPS for GeoIP. See README.md and tests/test_security.py for
+> the current behavior and regression coverage. Static shell commands remain;
+> this is not a complete security audit or a claim of zero vulnerabilities.
+
 ## Vulnerability Assessment & Fixes
 
 ### CRITICAL ISSUES - ALL FIXED ✅

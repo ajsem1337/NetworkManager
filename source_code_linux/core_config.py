@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import security_utils
 import re
 
 # --- 1. FUNKCJE SYSTEMOWE ---
@@ -29,25 +30,38 @@ DB_WIFI = os.path.join(DB_DIR, "wifi_vault.dat")
 
 # --- FUNKCJE POMOCNICZE ---
 def init():
-    if not os.path.exists(DB_DIR): os.makedirs(DB_DIR, mode=0o755)
-    if not os.path.exists(REPORTS_DIR): os.makedirs(REPORTS_DIR, mode=0o755)
-    for f in [DB_IP, DB_WOL]:
-        if not os.path.exists(f):
-            with open(f, "w", encoding='utf-8') as file: file.write("")
+    for directory in (DB_DIR, REPORTS_DIR):
+        if os.path.islink(directory):
+            raise OSError("Katalog danych nie może być dowiązaniem: " + directory)
+        os.makedirs(directory, mode=0o700, exist_ok=True)
+        if os.name == 'posix':
+            if os.stat(directory).st_uid != os.geteuid():
+                raise PermissionError("Katalog danych należy do innego użytkownika: " + directory)
+            os.chmod(directory, 0o700)
+    for f in (DB_IP, DB_WOL, DB_WIFI, FIRST_RUN_FLAG):
+        if os.path.islink(f):
+            raise OSError("Plik danych nie może być dowiązaniem: " + f)
+        if f in (DB_IP, DB_WOL) and not os.path.exists(f):
+            fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            os.close(fd)
+        if os.name == 'posix' and os.path.exists(f):
+            os.chmod(f, 0o600)
 
 def get_linux_speed(interface_name):
+    if not security_utils.validate_interface_name(interface_name):
+        return "--"
     try:
-        res = subprocess.check_output(f"iwconfig {interface_name}", shell=True, stderr=subprocess.DEVNULL).decode()
+        res = subprocess.check_output(["iwconfig", interface_name], stderr=subprocess.DEVNULL).decode()
         match = re.search(r"Bit Rate[=:]\s*([0-9\.]+.*?/s)", res)
         if match: return match.group(1).strip()
     except: pass
     try:
-        cmd = f"nmcli -t -f WIFI-PROPERTIES.RATE dev show {interface_name}"
-        res = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL).decode().strip()
+        cmd = ["nmcli", "-t", "-f", "WIFI-PROPERTIES.RATE", "dev", "show", interface_name]
+        res = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode().strip()
         if res and "--" not in res: return res.replace("Mbit/s", "Mb/s")
     except: pass
     try:
-        res = subprocess.check_output(f"ethtool {interface_name}", shell=True, stderr=subprocess.DEVNULL).decode()
+        res = subprocess.check_output(["ethtool", interface_name], stderr=subprocess.DEVNULL).decode()
         if "Speed:" in res: 
             val = res.split("Speed:")[1].splitlines()[0].strip()
             if "Unknown" in val: return "1000 Mb/s"
@@ -65,7 +79,7 @@ def get_adapters_info():
     try:
         interfaces = os.listdir('/sys/class/net/')
         for iface in interfaces:
-            if iface == 'lo': continue 
+            if iface == 'lo' or not security_utils.validate_interface_name(iface): continue
             try:
                 with open(f'/sys/class/net/{iface}/operstate', 'r') as f:
                     st = f.read().strip().lower()
@@ -75,8 +89,8 @@ def get_adapters_info():
             speed = get_linux_speed(iface) if is_up else "--"
             ip_addr = "---"
             try:
-                cmd = f"ip -4 -o addr show dev {iface}"
-                res = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL).decode()
+                cmd = ["ip", "-4", "-o", "addr", "show", "dev", iface]
+                res = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode()
                 if "inet" in res:
                     ip_addr = res.split()[3].split('/')[0]
             except: pass

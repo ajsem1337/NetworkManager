@@ -1,36 +1,67 @@
-import os, subprocess, core_report, re
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import requests, core_report, core_config, security_utils
 
 def run():
     while True:
-        os.system('cls')
-        print("=== WHOIS / REJESTRACJA DOMENY ===\n")
-        domain = input(" Podaj domenę (np. google.com) lub [0] aby wrócić: ")
+        core_config.clear_screen()
+        print("=== WHOIS / REJESTRACJA DOMENY (RDAP) ===\n")
+        domain = input(" Podaj domenę (np. google.com) lub [0] aby wrócić: ").strip()
+
         if not domain or domain == '0': break
         
+        if not security_utils.validate_hostname(domain):
+            print(" [!] Nieprawidłowa domena.")
+            input(" Enter...")
+            continue
+
         print(f"\n [i] Pobieranie danych dla: {domain}...")
-        cmd = f'powershell "Invoke-RestMethod https://rdap.org/domain/{domain}"'
-        res_raw = subprocess.run(cmd, capture_output=True, text=True, shell=True).stdout
         
         try:
-            # Uproszczone wyciąganie danych za pomocą regex, aby uniknąć błędów przy braku kluczy
-            created = re.search(r'eventAction":"registration","eventDate":"([^"]+)"', res_raw)
-            expired = re.search(r'eventAction":"expiration","eventDate":"([^"]+)"', res_raw)
-            status = re.search(r'ldhName":"([^"]+)","events"', res_raw)
+            headers = {
+                "User-Agent": "NetworkMaster"
+            }
             
-            output = f"\n WYNIK DLA: {domain.upper()}\n"
-            output += f" {'-'*40}\n"
-            output += f" REJESTRACJA: {created.group(1)[:10] if created else 'Brak danych'}\n"
-            output += f" WYGASA:      {expired.group(1)[:10] if expired else 'Brak danych'}\n"
-            output += f" SERWER WHOIS: {domain}\n"
-            output += f" {'-'*40}\n"
+            # Używamy API, które lepiej radzi sobie z przekierowaniami
+            r = requests.get(f"https://rdap.org/domain/{domain}", headers=headers, timeout=10)
             
-            print(output)
+            if r.status_code == 200:
+                data = r.json()
+
+                events = data.get('events', [])
+                created = "Brak danych"
+                expired = "Brak danych"
+
+                for e in events:
+                    if e.get('eventAction') == 'registration': created = e.get('eventDate')
+                    if e.get('eventAction') == 'expiration': expired = e.get('eventDate')
+
+                output = f"\n WYNIK DLA: {domain.upper()}\n"
+                output += f" {'-'*40}\n"
+                output += f" REJESTRACJA: {created[:10]}\n"
+                output += f" WYGASA:      {expired[:10]}\n"
+                output += f" HANDLE:      {data.get('handle', 'N/A')}\n"
+
+                # Wyciąganie statusów w czytelniejszy sposób
+                statuses = data.get('status', [])
+                output += f" STATUS:      {', '.join(statuses)}\n"
+                output += f" {'-'*40}\n"
+
+                print(output)
+
+                if input(" [?] Zapisać raport? (t/n): ").lower() == 't':
+                    core_report.save(output, f"Whois_{domain}")
             
-            if input(" [?] Zapisać raport na PULPICIE? (t/n): ").lower() == 't':
-                core_report.save(res_raw, f"Whois_{domain}")
-                print(" [OK] Zapisano.")
+            elif r.status_code == 404:
+                print(f" [!] Domena {domain} prawdopodobnie jest WOLNA lub nie istnieje.")
+            elif r.status_code == 403:
+                print(" [!] Dostęp zabroniony (403). Serwer zablokował zapytanie.")
+            elif r.status_code == 429:
+                print(" [!] Zbyt wiele zapytań (Rate Limit). Odczekaj chwilę.")
+            else:
+                print(f" [!] Błąd API: {r.status_code}")
                 
-        except:
-            print(" [!] Błąd interpretacji danych lub domena nie istnieje.")
+        except Exception as e:
+            print(f" [!] Błąd połączenia: {e}")
         
-        input("\n Naciśnij Enter, aby sprawdzić kolejną domenę...")
+        input("\n Enter...")

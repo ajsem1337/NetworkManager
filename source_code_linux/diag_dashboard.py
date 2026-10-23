@@ -31,8 +31,8 @@ def get_adapters_data():
             data[iface] = {'rx': 0, 'tx': 0, 'ip': 'Brak IP'}
             
             # Pobieranie IP (ip -4 addr show)
-            cmd_ip = f"ip -4 addr show {iface}"
-            res_ip = subprocess.run(cmd_ip, capture_output=True, text=True, shell=True).stdout
+            cmd_ip = ["ip", "-4", "addr", "show", "dev", iface]
+            res_ip = subprocess.run(cmd_ip, capture_output=True, text=True).stdout
             match_ip = re.search(r"inet\s+([\d\.]+)", res_ip)
             if match_ip:
                 data[iface]['ip'] = match_ip.group(1)

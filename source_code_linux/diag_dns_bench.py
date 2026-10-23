@@ -2,6 +2,7 @@ import os
 import subprocess
 import re
 import core_report
+import security_utils
 
 G, R, C, Y, RESET = '\033[92m', '\033[91m', '\033[96m', '\033[93m', '\033[0m'
 
@@ -18,8 +19,10 @@ DNS_SERVERS = {
 def ping_server(ip):
     try:
         # ping: -c 3 (3 pakiety), -W 1 (timeout 1 sekunda)
-        cmd = f"ping -c 3 -W 1 {ip}"
-        res = subprocess.run(cmd, capture_output=True, text=True, shell=True).stdout
+        if not security_utils.validate_ipv4(ip):
+            return 9999
+        cmd = ["ping", "-c", "3", "-W", "1", ip]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=8).stdout
         
         # Wypisy ping w Linux (np. rtt min/avg/max/mdev = 15.1/16.2/17.3/0.5 ms)
         match = re.search(r"=\s*[\d\.]+/([\d\.]+)/[\d\.]+", res)
