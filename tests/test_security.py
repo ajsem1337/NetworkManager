@@ -5,6 +5,7 @@ import io
 import os
 from pathlib import Path
 import stat
+import ssl
 import sys
 import tempfile
 import unittest
@@ -209,6 +210,25 @@ class SecurityTests(unittest.TestCase):
                     get.assert_called_once_with('https://ipwho.is/', timeout=5)
                     response.raise_for_status.assert_called_once()
                     response.json.assert_called_once()
+
+    def test_certificate_audit_requires_tls12_and_verifies_the_peer(self):
+        for platform in ('linux', 'windows'):
+            with self.subTest(platform=platform), variant(platform) as load:
+                module = load('diag_ssl')
+                context = ssl.create_default_context()
+                # Reproduce the permissive minimum of older Python/OpenSSL builds.
+                context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
+                wrapped = Mock()
+                with patch.object(module.os, 'system'), \
+                     patch('builtins.input', side_effect=['example.com', '', '0']), \
+                     patch.object(module.ssl, 'create_default_context', return_value=context), \
+                     patch.object(module.ssl.SSLContext, 'wrap_socket', return_value=wrapped) as wrap, \
+                     patch.object(module.socket, 'socket'):
+                    module.run()
+                self.assertEqual(context.minimum_version, ssl.TLSVersion.TLSv1_2)
+                self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+                self.assertTrue(context.check_hostname)
+                self.assertEqual(wrap.call_args.kwargs['server_hostname'], 'example.com')
 
     def test_wol_does_not_expose_or_resave_unused_passwords(self):
         for platform in ('linux', 'windows'):
