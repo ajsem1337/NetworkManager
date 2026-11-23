@@ -1,27 +1,30 @@
 # NetworkMaster
 
-![Made with AI](https://img.shields.io/badge/Made%20with-AI-76ddcf)
+![Made with AI](https://raw.githubusercontent.com/ajsem1337/ajsem1337/main/assets/made-with-ai.svg)
 
-Konsolowe narzędzie do diagnostyki i konfiguracji sieci na Linuxie i Windowsie. Repozytorium NetworkManager zawiera dwie osobne wersje aplikacji: `source_code_linux` i `source_code_windows`.
+A console tool for network diagnostics and configuration on Linux and Windows, with separate implementations in the NetworkManager repository's `source_code_linux` and `source_code_windows` directories.
 
-## Funkcje
+## Features
 
-- Ping, traceroute, DNS lookup, WHOIS/RDAP i sprawdzanie certyfikatów TLS.
-- Skanowanie portów, wykrywanie urządzeń w LAN i odczyt producenta karty po MAC.
-- Dashboard, monitor ruchu i sygnału WiFi, kalkulator podsieci.
-- Konfiguracja IP, DHCP i DNS, baza profili, Wake-on-LAN.
-- Edytor pliku hosts, czyszczenie DNS i reset konfiguracji sieci.
-- Odczyt zapisanych haseł WiFi oraz eksport raportów tekstowych.
+- Ping, traceroute, DNS lookup, WHOIS/RDAP and TLS certificate checks.
+- Port scanning, LAN device discovery and MAC vendor lookup.
+- Dashboard, traffic and WiFi signal monitoring, and a subnet calculator.
+- IP, DHCP and DNS configuration, a profile database, and Wake-on-LAN.
+- Hosts file editing, DNS cache flushing and network configuration resets.
+- Saved WiFi password retrieval and text report export.
 
-„DNS Benchmark” mierzy opóźnienie ICMP do serwerów DNS; nie mierzy czasu rozwiązywania nazw. Skaner LAN sprawdza zakres `/24` wybrany na podstawie lokalnego adresu, a nie wszystkie możliwe podsieci.
+“DNS Benchmark” measures ICMP latency to DNS servers, rather than name resolution
+time. The LAN scanner checks a `/24` range based on the local address, rather than
+every possible subnet.
 
-## Uruchomienie
+## Getting started
 
-Wymagany jest Python 3.11 lub nowszy oraz pakiet `requests`. Uruchamiaj kod z własnego katalogu użytkownika, w którym aplikacja może zapisywać dane.
+Requires Python 3.11 or newer and `requests`. Run the code from a directory in
+your own user account where the application can write its data.
 
 ### Linux
 
-```bash
+```sh
 git clone https://github.com/ajsem1337/NetworkManager.git
 cd NetworkManager
 python3 -m venv .venv
@@ -29,13 +32,19 @@ python3 -m venv .venv
 .venv/bin/python source_code_linux/main.py
 ```
 
-Poszczególne moduły korzystają z narzędzi systemowych: `ip`, `ping`, `tracepath`, `nslookup`, `ss`, `nmcli`, `iwconfig`, `ethtool`, `lspci`, `lsusb` i `nano`. Edytor graficzny wymaga `nm-connection-editor`. Reset sieci używa również `systemctl` i `dhclient`. Nazwy pakietów zależą od dystrybucji; brak danego narzędzia ogranicza odpowiednią funkcję.
+Individual modules use system tools: `ip`, `ping`, `tracepath`, `nslookup`, `ss`,
+`nmcli`, `iwconfig`, `ethtool`, `lspci`, `lsusb` and `nano`. The graphical editor
+requires `nm-connection-editor`. Network reset also uses `systemctl` and `dhclient`.
+Package names vary by distribution; a missing tool limits the corresponding feature.
 
-Zwykła diagnostyka działa bez roota. Zmiany konfiguracji używają `sudo`; odczyt haseł WiFi na Linuxie wymaga uruchomienia z uprawnieniami roota. Nie uruchamiaj całej aplikacji jako root do zwykłej diagnostyki. Katalogi danych są przypisane do użytkownika, który je utworzył — mieszanie uruchomień zwykłych i jako root może spowodować odmowę dostępu.
+Routine diagnostics work without root. Configuration changes use `sudo`; reading
+WiFi passwords on Linux requires root privileges. Do not run the entire application
+as root for routine diagnostics. Data directories belong to the user who created
+them; mixing normal and root runs can cause permission errors.
 
 ### Windows
 
-W PowerShellu, po pobraniu lub sklonowaniu repozytorium:
+In PowerShell, after downloading or cloning the repository:
 
 ```powershell
 py -3 -m venv .venv
@@ -43,35 +52,59 @@ py -3 -m venv .venv
 .\.venv\Scripts\python.exe source_code_windows\main.py
 ```
 
-Wersja Windows używa narzędzi systemowych, w tym Windows PowerShell, `netsh`, `ipconfig`, `ping`, `tracert` i `nslookup`. Zmiany konfiguracji, edycja hosts i część odczytów WiFi wymagają terminala uruchomionego jako administrator. Parsery części wyników obsługują polskie i angielskie komunikaty; inne języki systemu mogą wymagać dostosowania.
+The Windows version uses system tools including Windows PowerShell, `netsh`,
+`ipconfig`, `ping`, `tracert` and `nslookup`. Configuration changes, hosts file
+editing and some WiFi queries require a terminal running as Administrator.
+Some output parsers support Polish and English messages; other system languages
+may require adjustments.
 
-## Dane i bezpieczeństwo
+## Data and security
 
-- `core_data/` przy odpowiedniej wersji kodu zawiera flagę pierwszego uruchomienia oraz tekstowe bazy profili IP i WOL. Rozszerzenie `.sys` nie oznacza pliku systemowego ani szyfrowania.
-- Raporty trafiają do `Reports/` przy odpowiedniej wersji kodu. Nazwy są oczyszczane i otrzymują losowy sufiks, żeby zapisy nie nadpisywały istniejących plików.
-- Na Linuxie katalogi danych i raportów mają uprawnienia `700`, bazy danych i nowe raporty `600`. Na Windowsie ochrona dostępu zależy od ACL katalogu użytkownika. Dane nie są szyfrowane.
-- Audyt WiFi wyświetla dostępne hasła; zapis raportu wymaga wyboru użytkownika. Raport z hasłami pozostaje jawnym tekstem. Starsze raporty nie są automatycznie usuwane ani zabezpieczane ponownie.
-- WOL wysyła standardowy Magic Packet i nie korzysta z haseł SSH/RPC. Dawne czwarte pole bazy jest ignorowane, a przy zapisie zastępowane `-`. Stare hasła pozostają w istniejącym pliku do jego ponownego zapisania; kopie zapasowe pozostają bez zmian.
-- GeoIP łączy się z `ipwho.is` przez HTTPS; [dokumentacja usługi](https://ipwhois.io/documentation) opisuje odpowiedź API. WHOIS korzysta z `rdap.org`, a MAC Lookup z `api.macvendors.com`. Usługi otrzymują publiczny adres IP połączenia oraz odpowiednio domenę lub adres MAC z zapytania.
-- Polecenia diagnostyczne wysyłają ruch do wybranych hostów i serwerów. Raporty mogą zawierać adresy, nazwy urządzeń i hasła — sprawdź je przed udostępnieniem.
+- `core_data/` beside each platform's code contains the first-run flag and plain
+  text IP and WOL profile databases. The `.sys` extension does not imply a system
+  file or encryption.
+- Reports go to `Reports/` beside each platform's code. Filenames are sanitized
+  and given a random suffix to avoid overwriting existing files.
+- On Linux, data and report directories have permissions `700`; database files
+  and new reports use `600`. On Windows, access protection depends on the user
+  directory's ACLs. Data is not encrypted.
+- The WiFi audit displays available passwords; saving a report requires an
+  explicit choice. Reports containing passwords remain plain text. Older reports
+  are not automatically deleted or given updated permissions.
+- WOL sends a standard Magic Packet and does not use SSH/RPC passwords. The legacy
+  fourth database field is ignored and replaced with `-` when saved. Old passwords
+  remain in existing files until those files are saved again; backups are unchanged.
+- GeoIP connects to `ipwho.is` over HTTPS; the
+  [service documentation](https://ipwhois.io/documentation) describes its API
+  response. WHOIS uses `rdap.org`, and MAC Lookup uses `api.macvendors.com`.
+  These services receive the connection's public IP address and, where applicable,
+  the queried domain or MAC address.
+- Diagnostic commands send traffic to the selected hosts and servers. Reports may
+  contain addresses, device names and passwords; review them before sharing.
 
-Reset sieci, DHCP, zmiana IP i wyłączenie karty mogą przerwać połączenie. Dotychczasowy [raport Phase 1](SECURITY_FIXES_PHASE1.md) jest historyczny; nie stanowi potwierdzenia pełnego audytu aktualnego kodu.
+Network resets, DHCP, IP changes and disabling an adapter can interrupt the
+connection. The existing [Phase 1 report](SECURITY_FIXES_PHASE1.md) is historical
+and does not confirm a complete audit of the current code.
 
-## Weryfikacja
+## Verification
 
-```bash
+```sh
 python -m unittest discover -s tests -v
 python -m compileall -q source_code_linux source_code_windows
 ```
 
-Testy regresji sprawdzają walidację danych, przekazywanie argumentów procesom, bezpieczny zapis raportów, ochronę przed dowiązaniami i rezygnację z automatycznego eksportu haseł WiFi. Wywołania sieciowe i administracyjne są w testach zastępowane atrapami; testy nie zmieniają konfiguracji sieci. Działanie narzędzi systemowych wymaga osobnego sprawdzenia na docelowym systemie.
+Regression tests cover input validation, process argument handling, safe report
+writing, symlink protection and the removal of automatic WiFi password exports.
+Network and administrative calls are mocked; tests do not change network
+configuration. System tools need separate verification on the target platform.
 
-Dodatkowa dokumentacja: [NetworkMaster Technical Documentation PL](NetworkMaster_Technical_Documentation_PL.pdf). PDF może opisywać wcześniejszą wersję programu.
+Additional documentation: [NetworkMaster Technical Documentation PL](NetworkMaster_Technical_Documentation_PL.pdf)
+(in Polish). The PDF may describe an earlier version.
 
-## Licencja
+## License
 
 [GNU GPLv3](LICENSE.md).
 
-## AI assistance
+---
 
-**Made with AI.** This project was developed with AI assistance, including code, documentation, and testing.
+<p align="center"><sub>Built by <a href="https://github.com/ajsem1337">ajsem</a> with AI assistance.</sub></p>
