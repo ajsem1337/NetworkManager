@@ -18,7 +18,7 @@
 **Before:** `subprocess.run(f"ping -c 4 {adr}", shell=True)`
 - User input could contain `; rm -rf /`
 
-**After:** 
+**After:**
 ```python
 subprocess.run(["ping", "-c", "4", adr])
 security_utils.validate_hostname(adr)
@@ -26,7 +26,7 @@ security_utils.validate_hostname(adr)
 - ✅ Fixed: List-based arguments + hostname validation
 
 #### 2. Command Injection in diag_hosts.py (WORST)
-**Before:** 
+**Before:**
 ```python
 cmd = f"echo '{ip} {dom}' | sudo tee -a {PATH}"
 os.system(cmd)
@@ -60,7 +60,7 @@ subprocess.run(f"sudo nmcli con mod '{con}' ...", shell=True)
 
 **After:** All replaced with list-based commands:
 ```python
-subprocess.run(["sudo", "nmcli", "con", "add", "type", "ethernet", 
+subprocess.run(["sudo", "nmcli", "con", "add", "type", "ethernet",
                 "con-name", con, "ifname", iface])
 ```
 - ✅ Fixed: Proper argument passing + validation functions
@@ -82,12 +82,12 @@ subprocess.run(["sudo", "nmcli", "con", "add", "type", "ethernet",
 ## Testing Results
 
 ### Syntax Validation ✅
-```
+```text
 ✓ All 8 Python files compile without syntax errors
 ```
 
 ### Import Validation ✅
-```
+```text
 ✓ security_utils.py - structure OK
 ✓ diag_ping.py - structure OK
 ✓ diag_hosts.py - structure OK
@@ -97,14 +97,14 @@ subprocess.run(["sudo", "nmcli", "con", "add", "type", "ethernet",
 ```
 
 ### Injection Vector Scan ✅
-```
+```text
 ✓ No shell=True found in user input handling
 ✓ No os.system() with untrusted data
 ✓ No subprocess.call() with f-strings
 ```
 
 ### Validation Function Tests ✅
-```
+```text
 IPv4 validation:
   ✓ 8.8.8.8 => True
   ✓ 192.168.1.1 => True
@@ -166,7 +166,7 @@ Interface validation:
 ---
 
 ## Commits
-```
+```text
 fa898e2 Fix remaining os.system calls in main.py
 bb5b860 Fix CRITICAL command injection vulnerabilities
 ```
